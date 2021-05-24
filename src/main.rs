@@ -1,6 +1,3 @@
-extern crate nom;
-extern crate nom_supreme;
-
 mod parser;
 
 fn main() {
