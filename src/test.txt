@@ -1,0 +1,5 @@
+(
+    (import System.Text.RegularExpressions)
+    ((-> (new !Regex "asdf+") IsMatch) "asdfg\"hjkl")
+    (= (+ 2 2) 0x5)
+)
