@@ -9,27 +9,32 @@ use nom_supreme::{
 use Expression::*;
 
 #[derive(Debug)]
-pub enum Expression {
-    Atom(String),
-    Parens(Vec<Expression>),
-    ScalarVar(String),
-    ListVar(String),
-    DictVar(String),
-    Type(String),
-    NumberLiteral(String),
-    StringLiteral(String),
-    ListLiteral(Vec<Expression>),
-    DictLiteral(Vec<(Expression, Expression)>),
+pub enum NumLiteralKind<'a> {
+    Hex(&'a str),
+    Decimal(&'a str),
+}
+
+#[derive(Debug)]
+pub enum Expression<'a> {
+    Atom(&'a str),
+    Parens(Vec<Expression<'a>>),
+    ScalarVar(&'a str),
+    ListVar(&'a str),
+    DictVar(&'a str),
+    Type(&'a str),
+    NumberLiteral(NumLiteralKind<'a>),
+    StringLiteral(&'a str),
+    ListLiteral(Vec<Expression<'a>>),
+    DictLiteral(Vec<(Expression<'a>, Expression<'a>)>),
 }
 
 type Error<'a> = ErrorTree<&'a str>;
 type ParseResult<'a, O> = IResult<&'a str, O, Error<'a>>;
 
-fn identifier(input: &str) -> ParseResult<String> {
-    map(
-        many1(none_of(" \t\r\n()$@%!`'\"")).context("illegal identifier characters"),
-        |v| v.iter().collect(),
-    )(input)
+fn identifier(input: &str) -> ParseResult<&str> {
+    is_not(" \t\r\n()$@%!`'\"")
+        .context("illegal identifier characters")
+        .parse(input)
 }
 
 fn atom(input: &str) -> ParseResult<Expression> {
@@ -54,16 +59,16 @@ fn paren_exps(input: &str) -> ParseResult<Vec<Expression>> {
 
 fn sigil_id<'a>(
     c: char,
-    ctor: impl Fn(String) -> Expression,
-) -> impl Parser<&'a str, Expression, Error<'a>> {
+    ctor: impl Fn(&'a str) -> Expression<'a>,
+) -> impl Parser<&'a str, Expression<'a>, Error<'a>> {
     preceded(char(c), map(identifier, ctor))
 }
 
 fn number(input: &str) -> ParseResult<Expression> {
     map(
         alt((
-            map(preceded(tag("0x"), hex_digit1), |s| "0x".to_string() + s),
-            map(recognize_float, str::to_string),
+            map(preceded(tag("0x"), hex_digit1), NumLiteralKind::Hex),
+            map(recognize_float, NumLiteralKind::Decimal),
         )),
         NumberLiteral,
     )(input)
@@ -77,7 +82,7 @@ fn string(input: &str) -> ParseResult<Expression> {
             escaped(is_not("\"\\"), '\\', one_of("\"\\")),
             char('"'),
         ),
-        |s: &str| StringLiteral(s.to_string()),
+        StringLiteral,
     )(input)
 }
 
